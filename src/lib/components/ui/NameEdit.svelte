@@ -29,7 +29,7 @@
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === 'Escape') stopEditing();
 			}}
-			maxlength="5"
+			maxlength="10"
 			class="border-none bg-transparent p-0 text-left font-serif text-5xl leading-15 font-bold outline-none"
 			style="width: 7ch"
 		/>{:else}<button
