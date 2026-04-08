@@ -129,7 +129,6 @@ app.get('/model-proxy/*', async (c) => {
 	const prefix = '/api/model-proxy/';
 	const idx = url.pathname.indexOf(prefix);
 	const path = idx >= 0 ? url.pathname.slice(idx + prefix.length) : '';
-	console.log('Proxying:', path);
 
 	const hfUrl = `https://huggingface.co/${path}`;
 	const res = await fetch(hfUrl, {
@@ -140,14 +139,6 @@ app.get('/model-proxy/*', async (c) => {
 	});
 
 	const contentLength = res.headers.get('Content-Length');
-	console.log(
-		'HF response:',
-		res.status,
-		'size:',
-		contentLength,
-		'type:',
-		res.headers.get('Content-Type')
-	);
 
 	if (!res.ok) {
 		return c.text(`HF error: ${res.status} ${res.statusText}`, res.status as any);
@@ -170,9 +161,7 @@ app.get('/model-proxy/*', async (c) => {
 
 	// Buffer ONNX files to ensure correct Content-Length (XET storage may not send it)
 	if (path.endsWith('.onnx') || path.endsWith('.onnx_data')) {
-		console.log('Buffering large ONNX file:', path);
 		const buffer = await res.arrayBuffer();
-		console.log('Buffered:', path, 'actual size:', buffer.byteLength);
 		headers['Content-Length'] = buffer.byteLength.toString();
 		return new Response(buffer, {
 			status: res.status,
@@ -200,8 +189,6 @@ const routes = app
 			`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${OPENWEATHER_KEY}`
 		);
 		const geoData = await geoRes.json();
-
-		console.log('oras ', city, ' data ', geoData[0]);
 
 		if (!geoData.length) throw new Error(`City not found: ${city}`);
 
