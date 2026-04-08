@@ -4,7 +4,7 @@ import * as v from 'valibot';
 import { type paths } from '$lib/types/openweather.d';
 import createClient from 'openapi-fetch';
 
-import { OPENWEATHER_KEY, HF_TOKEN } from '$env/static/private';
+import { OPENWEATHER_KEY, HF_TOKEN, OPENROUTER_API_KEY } from '$env/static/private';
 
 const client = createClient<paths>({
 	baseUrl: 'https://api.openweathermap.org/data/2.5'
@@ -22,7 +22,7 @@ const weatherForCitySchema = v.object({
 const app = new Hono().basePath('/api');
 
 async function getWeatherByCoords(cords: { lon: number; lat: number }) {
-	const { data, error } = await client.GET('/weather', {
+	const { data } = await client.GET('/weather', {
 		params: {
 			query: {
 				lon: cords.lon.toString(),
@@ -38,22 +38,22 @@ async function getWeatherByCoords(cords: { lon: number; lat: number }) {
 
 export function gradesToText(degrees: number): { abbr: string; label: string } {
 	const dirs = [
-		{ abbr: 'N', label: 'Nord' },
-		{ abbr: 'NNE', label: 'Nord-Nord-Est' },
-		{ abbr: 'NE', label: 'Nord-Est' },
-		{ abbr: 'ENE', label: 'Est-Nord-Est' },
-		{ abbr: 'E', label: 'Est' },
-		{ abbr: 'ESE', label: 'Est-Sud-Est' },
-		{ abbr: 'SE', label: 'Sud-Est' },
-		{ abbr: 'SSE', label: 'Sud-Sud-Est' },
-		{ abbr: 'S', label: 'Sud' },
-		{ abbr: 'SSW', label: 'Sud-Sud-Vest' },
-		{ abbr: 'SW', label: 'Sud-Vest' },
-		{ abbr: 'WSW', label: 'Vest-Sud-Vest' },
-		{ abbr: 'W', label: 'Vest' },
-		{ abbr: 'WNW', label: 'Vest-Nord-Vest' },
-		{ abbr: 'NW', label: 'Nord-Vest' },
-		{ abbr: 'NNW', label: 'Nord-Nord-Vest' }
+		{ abbr: 'N', label: 'North' },
+		{ abbr: 'NNE', label: 'North-North-East' },
+		{ abbr: 'NE', label: 'North-East' },
+		{ abbr: 'ENE', label: 'East-North-East' },
+		{ abbr: 'E', label: 'East' },
+		{ abbr: 'ESE', label: 'East-South-East' },
+		{ abbr: 'SE', label: 'South-East' },
+		{ abbr: 'SSE', label: 'South-South-East' },
+		{ abbr: 'S', label: 'South' },
+		{ abbr: 'SSW', label: 'South-South-West' },
+		{ abbr: 'SW', label: 'South-West' },
+		{ abbr: 'WSW', label: 'West-South-West' },
+		{ abbr: 'W', label: 'West' },
+		{ abbr: 'WNW', label: 'West-North-West' },
+		{ abbr: 'NW', label: 'North-West' },
+		{ abbr: 'NNW', label: 'North-North-West' }
 	];
 
 	const index = Math.round((((degrees % 360) + 360) % 360) / 22.5) % 16;
@@ -66,9 +66,6 @@ function formatData(data: Awaited<ReturnType<typeof getWeatherByCoords>>) {
 	return {
 		// 🌡️ Temperature (need all 3 units)
 		temp_celsius: data?.main?.temp, // metric from API
-		temp_fahrenheit: data?.main?.temp ? (data.main.temp * 9) / 5 + 32 : null,
-		temp_kelvin: data?.main?.temp ? data.main.temp + 273.15 : null,
-		grnd_level: data?.main?.grnd_level,
 
 		// 💧 Humidity
 		humidity: data?.main?.humidity,
@@ -92,10 +89,40 @@ function formatData(data: Awaited<ReturnType<typeof getWeatherByCoords>>) {
 		coords: {
 			lat: data?.coord?.lat,
 			lon: data?.coord?.lon
-		}
+		},
+
+		// 🌡️ Pressure
+		pressure: data?.main?.pressure
 	};
 }
 export type FormattedData = ReturnType<typeof formatData>;
+app.post('/openrouter', async (c) => {
+	const body = await c.req.json();
+
+	const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+			'HTTP-Referer': 'https://your-site.com',
+			'X-Title': 'Your App Name'
+		},
+		body: JSON.stringify({
+			model: body.model,
+			messages: body.messages,
+			max_tokens: body.max_tokens ?? 512
+		})
+	});
+
+	if (!res.ok) {
+		const err = await res.text();
+		return c.text(err, res.status as any);
+	}
+
+	const data = await res.json();
+	return c.json(data);
+});
+
 app.get('/model-proxy/*', async (c) => {
 	// Extract path manually since Hono's param capture doesn't work reliably with SvelteKit
 	const url = new URL(c.req.url);
@@ -104,26 +131,58 @@ app.get('/model-proxy/*', async (c) => {
 	const path = idx >= 0 ? url.pathname.slice(idx + prefix.length) : '';
 	console.log('Proxying:', path);
 
-	const res = await fetch(`https://huggingface.co/${path}`, {
+	const hfUrl = `https://huggingface.co/${path}`;
+	const res = await fetch(hfUrl, {
 		headers: {
 			Authorization: `Bearer ${HF_TOKEN}`
-		}
+		},
+		redirect: 'follow'
 	});
 
-	console.log('HF response status:', res.status); // 👈 and this
+	const contentLength = res.headers.get('Content-Length');
+	console.log(
+		'HF response:',
+		res.status,
+		'size:',
+		contentLength,
+		'type:',
+		res.headers.get('Content-Type')
+	);
 
 	if (!res.ok) {
 		return c.text(`HF error: ${res.status} ${res.statusText}`, res.status as any);
 	}
 
-	return new Response(res.body, {
-		headers: {
-			'Content-Type': res.headers.get('Content-Type') ?? 'application/octet-stream',
-			'Cache-Control': 'public, max-age=31536000',
-			'Access-Control-Allow-Origin': '*'
-		}
-	});
+	const headers: Record<string, string> = {
+		'Content-Type': res.headers.get('Content-Type') ?? 'application/octet-stream',
+		'Cache-Control': 'public, max-age=31536000',
+		'Access-Control-Allow-Origin': '*'
+	};
+
+	// CRITICAL: pass Content-Length so ONNX Runtime knows the full size
+	if (contentLength) headers['Content-Length'] = contentLength;
+
+	// Support Range requests (ONNX Runtime may use these for large files)
+	const acceptRanges = res.headers.get('Accept-Ranges');
+	if (acceptRanges) headers['Accept-Ranges'] = acceptRanges;
+	const contentRange = res.headers.get('Content-Range');
+	if (contentRange) headers['Content-Range'] = contentRange;
+
+	// Buffer ONNX files to ensure correct Content-Length (XET storage may not send it)
+	if (path.endsWith('.onnx') || path.endsWith('.onnx_data')) {
+		console.log('Buffering large ONNX file:', path);
+		const buffer = await res.arrayBuffer();
+		console.log('Buffered:', path, 'actual size:', buffer.byteLength);
+		headers['Content-Length'] = buffer.byteLength.toString();
+		return new Response(buffer, {
+			status: res.status,
+			headers
+		});
+	}
+
+	return new Response(res.body, { status: res.status, headers });
 });
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const routes = app
 	.get('/current-weather', vValidator('query', currentWeatherSchema), async (c) => {
 		const { lat, lon } = c.req.valid('query');

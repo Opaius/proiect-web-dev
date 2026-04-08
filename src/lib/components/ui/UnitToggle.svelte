@@ -4,9 +4,9 @@
 	import { applyTheme, themeStore, unitStore } from '$lib/hooks/localStorage.svelte';
 
 	const units = [
-		{ value: 'metric', label: 'Celsius (°C)' },
-		{ value: 'imperial', label: 'Fahrenheit (°F)' },
-		{ value: 'standard', label: 'Kelvin (K)' }
+		{ value: 'celsius', label: 'Celsius (°C)' },
+		{ value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+		{ value: 'kelvin', label: 'Kelvin (K)' }
 	];
 
 	const triggerContent = $derived(

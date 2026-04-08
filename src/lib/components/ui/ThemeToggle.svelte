@@ -1,7 +1,6 @@
 <script lang="ts">
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
-	import WavesIcon from '@lucide/svelte/icons/waves';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import { themes, themeStore } from '$lib/hooks/localStorage.svelte';
 	import type { Theme } from '$lib/hooks/localStorage.svelte';
@@ -10,8 +9,7 @@
 	const themeConfig: Record<Theme, { label: string; icon: any }> = {
 		light: { label: 'Light', icon: SunIcon },
 		dark: { label: 'Dark', icon: MoonIcon },
-		system: { label: 'System', icon: MonitorIcon },
-		ocean: { label: 'Ocean', icon: WavesIcon }
+		system: { label: 'System', icon: MonitorIcon }
 	};
 </script>
 
@@ -26,7 +24,7 @@
 		{config.label}
 	</Select.Trigger>
 	<Select.Content>
-		{#each themes as theme}
+		{#each themes as theme (theme)}
 			{@const config = themeConfig[theme]}
 			<Select.Item value={theme} class="flex">
 				<config.icon size="16" />

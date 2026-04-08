@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { ModeWatcher } from 'mode-watcher';
 	let { children, data } = $props();
 	import './layout.css';
 	import '@fontsource-variable/roboto-serif';

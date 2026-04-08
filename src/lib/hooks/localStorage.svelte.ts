@@ -66,7 +66,7 @@ function readWithFallback(key: string, fallback: string): string {
 // ————————————————————————————————————————
 // Theme
 // ————————————————————————————————————————
-export const themes = ['light', 'dark', 'system', 'ocean'] as const;
+export const themes = ['light', 'dark', 'system'] as const;
 export type Theme = (typeof themes)[number];
 const themeClasses = themes.filter((t) => t !== 'system');
 
@@ -139,6 +139,7 @@ export interface SearchEntry {
 	city: string;
 	timestamp: number;
 	data: FormattedData;
+	tip?: string;
 }
 
 function createHistoryStore() {
@@ -154,9 +155,19 @@ function createHistoryStore() {
 			return history;
 		},
 
-		add(city: string, data: FormattedData) {
-			history = [{ city, timestamp: Date.now(), data }, ...history].slice(0, 5); // keep newest 5
+		add(city: string, data: FormattedData, tip?: string) {
+			const entry = { city, timestamp: Date.now(), data, tip };
+			history = [entry, ...history].slice(0, 5); // keep newest 5
 			save();
+			return entry.timestamp;
+		},
+
+		updateTip(timestamp: number, tip: string) {
+			const entry = history.find((e) => e.timestamp === timestamp);
+			if (entry) {
+				entry.tip = tip;
+				save();
+			}
 		},
 
 		remove(timestamp: number) {

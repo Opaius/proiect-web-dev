@@ -17,7 +17,9 @@
 	}
 </script>
 
-<div class="p-10 text-left font-serif text-5xl leading-15 font-bold">
+<div
+	class="p-10 text-center font-serif text-5xl leading-15 font-bold sm:text-left lg:items-center lg:gap-4 xl:flex 2xl:block"
+>
 	<div>Welcome</div>
 	<div>Back</div>
 	{#if editing}<input
