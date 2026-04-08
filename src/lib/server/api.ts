@@ -4,7 +4,7 @@ import * as v from 'valibot';
 import { type paths } from '$lib/types/openweather.d';
 import createClient from 'openapi-fetch';
 
-import { OPENWEATHER_KEY, HF_TOKEN, OPENROUTER_API_KEY } from '$env/static/private';
+import { OPENWEATHER_KEY, OPENROUTER_API_KEY } from '$env/static/private';
 
 const client = createClient<paths>({
 	baseUrl: 'https://api.openweathermap.org/data/2.5'
@@ -123,54 +123,6 @@ app.post('/openrouter', async (c) => {
 	return c.json(data);
 });
 
-app.get('/model-proxy/*', async (c) => {
-	// Extract path manually since Hono's param capture doesn't work reliably with SvelteKit
-	const url = new URL(c.req.url);
-	const prefix = '/api/model-proxy/';
-	const idx = url.pathname.indexOf(prefix);
-	const path = idx >= 0 ? url.pathname.slice(idx + prefix.length) : '';
-
-	const hfUrl = `https://huggingface.co/${path}`;
-	const res = await fetch(hfUrl, {
-		headers: {
-			Authorization: `Bearer ${HF_TOKEN}`
-		},
-		redirect: 'follow'
-	});
-
-	const contentLength = res.headers.get('Content-Length');
-
-	if (!res.ok) {
-		return c.text(`HF error: ${res.status} ${res.statusText}`, res.status as any);
-	}
-
-	const headers: Record<string, string> = {
-		'Content-Type': res.headers.get('Content-Type') ?? 'application/octet-stream',
-		'Cache-Control': 'public, max-age=31536000',
-		'Access-Control-Allow-Origin': '*'
-	};
-
-	// CRITICAL: pass Content-Length so ONNX Runtime knows the full size
-	if (contentLength) headers['Content-Length'] = contentLength;
-
-	// Support Range requests (ONNX Runtime may use these for large files)
-	const acceptRanges = res.headers.get('Accept-Ranges');
-	if (acceptRanges) headers['Accept-Ranges'] = acceptRanges;
-	const contentRange = res.headers.get('Content-Range');
-	if (contentRange) headers['Content-Range'] = contentRange;
-
-	// Buffer ONNX files to ensure correct Content-Length (XET storage may not send it)
-	if (path.endsWith('.onnx') || path.endsWith('.onnx_data')) {
-		const buffer = await res.arrayBuffer();
-		headers['Content-Length'] = buffer.byteLength.toString();
-		return new Response(buffer, {
-			status: res.status,
-			headers
-		});
-	}
-
-	return new Response(res.body, { status: res.status, headers });
-});
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const routes = app
 	.get('/current-weather', vValidator('query', currentWeatherSchema), async (c) => {
