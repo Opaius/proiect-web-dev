@@ -49,55 +49,16 @@ export function createLLM() {
 					throw new Error(`API error: ${res.status} ${err}`);
 				}
 
-				const contentType = res.headers.get('content-type') ?? '';
+				const json = await res.json();
 
-				// Non-streaming fallback
-				if (!contentType.includes('text/event-stream')) {
-					const data = await res.json();
-					const text = data.choices?.[0]?.message?.content ?? '';
-					opts.onToken?.(text);
-					return text;
+				// OpenRouter not available (no key configured) — don't retry
+				if (json.available === false) {
+					throw new Error(json.reason ?? 'AI tips not available');
 				}
 
-				// Stream SSE
-				const reader = res.body!.getReader();
-				const decoder = new TextDecoder();
-				let full = '';
-				let buffer = '';
-
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-
-					buffer += decoder.decode(value, { stream: true });
-					const lines = buffer.split('\n');
-					buffer = lines.pop() ?? '';
-
-					for (const line of lines) {
-						const trimmed = line.trim();
-						if (!trimmed.startsWith('data: ')) continue;
-						const payload = trimmed.slice(6);
-						if (payload === '[DONE]') break;
-
-						try {
-							const json = JSON.parse(payload);
-							const delta = json.choices?.[0]?.delta?.content;
-							if (delta) {
-								full += delta;
-								opts.onToken?.(full);
-							}
-						} catch {
-							// skip malformed chunks
-						}
-					}
-				}
-
-				if (full.length > 0) return full;
-
-				// Empty response — retry
-				lastError = new Error('Empty streaming response');
-				await delay(RETRY_DELAY * (attempt + 1));
-				continue;
+				const text = json.choices?.[0]?.message?.content ?? '';
+				opts.onToken?.(text);
+				return text;
 			} catch (e: any) {
 				lastError = e;
 				await delay(RETRY_DELAY * (attempt + 1));

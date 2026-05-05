@@ -7,7 +7,7 @@ import createClient from 'openapi-fetch';
 
 interface Bindings extends Env {
 	OPENWEATHER_KEY: string;
-	OPENROUTER_API_KEY: string;
+	OPENROUTER_API_KEY?: string;
 }
 
 const client = createClient<paths>({
@@ -91,13 +91,17 @@ app.post('/openrouter', async (c) => {
 	const env = c.env as Env;
 	const body = await c.req.json();
 
+	if (!env.OPENROUTER_API_KEY) {
+		return c.json({ available: false, reason: 'OpenRouter API key not configured' });
+	}
+
 	const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-			'HTTP-Referer': 'https://your-site.com',
-			'X-Title': 'Your App Name'
+			'HTTP-Referer': 'https://weather.cioky.dev',
+			'X-Title': 'Weather App'
 		},
 		body: JSON.stringify({
 			model: body.model,

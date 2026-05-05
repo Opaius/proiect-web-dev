@@ -6,7 +6,7 @@ declare global {
 		interface Locals {
 			env: {
 				OPENWEATHER_KEY: string;
-				OPENROUTER_API_KEY: string;
+				OPENROUTER_API_KEY?: string;
 			};
 		}
 		// interface PageData {}
