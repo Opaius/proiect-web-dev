@@ -73,11 +73,17 @@ const themeClasses = themes.filter((t) => t !== 'system');
 function createThemeStore() {
 	let theme = $state<Theme>(readWithFallback('theme', 'system') as Theme);
 
+	// Validate — if somehow an invalid value got in, reset to 'system'
+	if (!themes.includes(theme)) {
+		theme = 'system';
+	}
+
 	return {
 		get current() {
 			return theme;
 		},
 		set current(v: Theme) {
+			if (!themes.includes(v)) return;
 			theme = v;
 			if (browser) writeCookie('theme', v);
 		}

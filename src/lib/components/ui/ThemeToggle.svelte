@@ -19,7 +19,7 @@
 	onValueChange={(v) => (themeStore.current = v as Theme)}
 >
 	<Select.Trigger class="w-full justify-start">
-		{@const config = themeConfig[themeStore.current]}
+		{@const config = themeConfig[themeStore.current] ?? themeConfig.system}
 		<config.icon size="16" />
 		{config.label}
 	</Select.Trigger>
