@@ -40,7 +40,13 @@ function readCookie(key: string): string | null {
 function readLocal(key: string): string | null {
 	if (!browser) return null;
 	const val = localStorage.getItem(key);
-	return val ? decodeURIComponent(val) : null;
+	if (!val) return null;
+	try {
+		return decodeURIComponent(val);
+	} catch {
+		// Stored as raw JSON (not URI-encoded) — return as-is
+		return val;
+	}
 }
 
 function writeCookie(key: string, value: string) {
