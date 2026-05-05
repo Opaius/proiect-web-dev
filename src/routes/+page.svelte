@@ -136,7 +136,7 @@
 				>
 					<Card.Content class="flex h-full flex-col justify-end gap-4">
 						<h3 class="max-w-45 self-center text-center font-serif text-xl">
-							Hey man, do you want to see the weather for ...
+							Hey, do you want to see the weather for ...
 						</h3>
 						<div class="flex h-full w-full grow flex-col gap-2 *:grow">
 							<Input bind:value={inputData} placeholder="Name of city"></Input>
