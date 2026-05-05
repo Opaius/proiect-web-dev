@@ -1,10 +1,14 @@
 import { vValidator } from '@hono/valibot-validator';
 import { Hono } from 'hono';
+import type { Env } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { type paths } from '$lib/types/openweather.d';
 import createClient from 'openapi-fetch';
 
-import { OPENWEATHER_KEY, OPENROUTER_API_KEY } from '$env/static/private';
+interface Bindings extends Env {
+	OPENWEATHER_KEY: string;
+	OPENROUTER_API_KEY: string;
+}
 
 const client = createClient<paths>({
 	baseUrl: 'https://api.openweathermap.org/data/2.5'
@@ -19,22 +23,21 @@ const weatherForCitySchema = v.object({
 	city: v.pipe(v.string(), v.minLength(3))
 });
 
-const app = new Hono().basePath('/api');
+const app = new Hono<{ Bindings: Bindings; Variables: { env: Bindings } }>().basePath('/api');
 
-async function getWeatherByCoords(cords: { lon: number; lat: number }) {
+async function getWeatherByCoords(cords: { lon: number; lat: number }, env: Env) {
 	const { data } = await client.GET('/weather', {
 		params: {
 			query: {
 				lon: cords.lon.toString(),
 				lat: cords.lat.toString(),
 				units: 'metric',
-				appId: OPENWEATHER_KEY
+				appId: env.OPENWEATHER_KEY
 			}
 		}
 	});
 	return data;
 }
-// src/lib/utils/wind.ts
 
 export function gradesToText(degrees: number): { abbr: string; label: string } {
 	const dirs = [
@@ -64,46 +67,35 @@ function formatData(data: Awaited<ReturnType<typeof getWeatherByCoords>>) {
 	const windDir = gradesToText(data?.wind?.deg ?? 0);
 
 	return {
-		// 🌡️ Temperature (need all 3 units)
-		temp_celsius: data?.main?.temp, // metric from API
-
-		// 💧 Humidity
+		temp_celsius: data?.main?.temp,
 		humidity: data?.main?.humidity,
-
-		// 🌤️ Weather condition (for UI theme switching)
-		weather_id: data?.weather?.[0]?.id, // numeric id for condition logic
+		weather_id: data?.weather?.[0]?.id,
 		description: data?.weather?.[0]?.description,
 		icon: data?.weather?.[0]?.icon,
-
-		// 🌬️ Wind
 		wind_speed: data?.wind?.speed,
-		wind_direction: windDir, // converted to words
-
-		// 🌅 Sunrise / Sunset
+		wind_direction: windDir,
 		sunrise: data?.sys?.sunrise,
 		sunset: data?.sys?.sunset,
-
-		// 📍 Location
 		city: data?.name,
 		country: data?.sys?.country,
 		coords: {
 			lat: data?.coord?.lat,
 			lon: data?.coord?.lon
 		},
-
-		// 🌡️ Pressure
 		pressure: data?.main?.pressure
 	};
 }
 export type FormattedData = ReturnType<typeof formatData>;
+
 app.post('/openrouter', async (c) => {
+	const env = c.env as Env;
 	const body = await c.req.json();
 
 	const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
 			'HTTP-Referer': 'https://your-site.com',
 			'X-Title': 'Your App Name'
 		},
@@ -123,30 +115,31 @@ app.post('/openrouter', async (c) => {
 	return c.json(data);
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const routes = app
 	.get('/current-weather', vValidator('query', currentWeatherSchema), async (c) => {
+		const env = c.env as Env;
 		const { lat, lon } = c.req.valid('query');
-		const data = await getWeatherByCoords({
-			lat,
-			lon
-		});
+		const data = await getWeatherByCoords({ lat, lon }, env);
 		const formatted = formatData(data);
 		return c.json({ formatted });
 	})
-	.get('/current-weather/:city', vValidator('param', weatherForCitySchema), async (c) => {
+.get('/current-weather/:city', vValidator('param', weatherForCitySchema), async (c) => {
+		const env = c.env as unknown as Bindings;
 		const city = c.req.valid('param').city;
 
 		const geoRes = await fetch(
-			`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${OPENWEATHER_KEY}`
+			`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${env.OPENWEATHER_KEY}`
 		);
 		const geoData = await geoRes.json();
 
+		if (!geoRes.ok) {
+			throw new Error(`Geo API error: ${geoRes.status} - ${JSON.stringify(geoData)}`);
+		}
 		if (!geoData.length) throw new Error(`City not found: ${city}`);
 
 		const { lat, lon } = geoData[0];
 
-		const data = await getWeatherByCoords({ lat, lon });
+		const data = await getWeatherByCoords({ lat, lon }, env);
 		const formatted = formatData(data);
 
 		return c.json({ formatted });
@@ -161,9 +154,9 @@ const routes = app
 
 		return c.json({
 			title: data.title,
-			description: data.description, // short tagline e.g. "City in Romania"
-			extract: data.extract, // 2-3 sentence summary
-			thumbnail: data.thumbnail?.source // city image
+			description: data.description,
+			extract: data.extract,
+			thumbnail: data.thumbnail?.source
 		});
 	});
 export default app;

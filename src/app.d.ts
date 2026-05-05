@@ -3,10 +3,15 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			env: {
+				OPENWEATHER_KEY: string;
+				OPENROUTER_API_KEY: string;
+			};
+		}
 		// interface PageData {}
 		// interface PageState {}
-		// interface Platform {}
+		interface Platform {}
 	}
 }
 

@@ -1,0 +1,8 @@
+name = "proiect-web-dev"
+compatibility_date = "2025-04-24"
+
+main = ".svelte-kit/cloudflare/_worker.js"
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"
